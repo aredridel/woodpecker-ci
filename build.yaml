@@ -1,0 +1,29 @@
+when:
+  - event: push
+    branch: main
+
+steps:
+  - name: build repo
+    image: ubuntu:noble
+    commands:
+      - "apt-get update"
+      - "apt-get install -y aptly gnupg ca-certificates wget"
+      - 'wget https://github.com/woodpecker-ci/woodpecker/releases/download/v$${VERSION}/woodpecker-server_$${VERSION}_amd64.deb'
+      - 'wget https://github.com/woodpecker-ci/woodpecker/releases/download/v$${VERSION}/woodpecker-agent_$${VERSION}_amd64.deb'
+      - 'wget https://github.com/woodpecker-ci/woodpecker/releases/download/v$${VERSION}/woodpecker-cli_$${VERSION}_amd64.deb'
+      - 'echo "$PACKAGE_SIGNING_KEY" | gpg --batch --import'
+      - "mkdir repo"
+      - "cp aptly.conf ~/.aptly.conf"
+      - "aptly repo create -distribution noble -component main woodpecker"
+      - "aptly repo add woodpecker woodpecker*.deb"
+      - "aptly publish repo woodpecker"
+      - "aptly snapshot create woodpecker from repo woodpecker"
+      - "aptly publish snapshot woodpecker s3:woodpecker:"
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: WASABI_S3_ACCESS_KEY
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: WASABI_S3_SECRET_KEY
+      PACKAGE_SIGNING_KEY:
+        from_secret: PACKAGE_SIGNING_KEY
+      VERSION: 3.7.0
